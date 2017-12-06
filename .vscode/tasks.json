@@ -7,7 +7,7 @@
             "taskName": "make",
             //"label": "make",
             "type": "shell",
-            "command": "make"
+            "command": "make",
             "group": {
                 "kind": "build",
                 "isDefault": false

@@ -1848,8 +1848,6 @@ yyerror(char *s)
   fprintf(stderr, "L%d:%s %s\n",yylineno,yytext, s);
 }
 
-
-
 void generate(int opcode,REG base,REG index,REG address){
 
 	OPCODE item;
@@ -1886,7 +1884,6 @@ void generate(int opcode,REG base,REG index,REG address){
 		case 7:
 			currentstack=startstack-5;
 	}*/
-
 }
 
 void backpatch(int a,REG b){
