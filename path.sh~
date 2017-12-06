@@ -1,0 +1,3 @@
+#!/usr/bin/sh
+
+setenv PATH /pub1/ensyu/students/compiler/util/:$PATH

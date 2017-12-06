@@ -1,0 +1,25 @@
+parser: y.tab.o lex.yy.o 
+	cc y.tab.o lex.yy.o -ll -o parser
+
+scanner.o: lex.yy.c
+	cc lex.yy.c -c -ll
+
+stack.o: stack.c stack.h
+	cc stack.c -c
+
+y.tab.o: y.tab.c
+	cc y.tab.c -c
+
+y.tab.c: parser.y stack.c stack.h
+	yacc -d parser.y
+
+y.tab.h: parser.y
+	yacc -d parser.y
+
+lex.yy.c: scanner.l y.tab.h
+	lex scanner.l
+
+clean:
+	rm y.tab.c lex.yy.c -f
+	rm *.o
+

@@ -1,0 +1,9 @@
+program test;
+var i,r;
+procedure twice;
+begin
+   r:=i+i;
+end;
+begin
+   twice
+end.

@@ -1,0 +1,13 @@
+program PL0D;
+var n, temp;
+procedure fact;
+var m;
+begin
+   m:=2;
+   temp:=3;
+   n:=temp*m
+end;
+begin
+   n:=1;
+    fact;
+end.
