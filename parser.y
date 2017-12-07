@@ -135,6 +135,8 @@ for_statement
 
 proc_call_statement
 	: proc_call_name
+	| proc_call_name LPAREN arg_list RPAREN
+	;
 
 proc_call_name
 	: IDENT {generate(CAL,0,0,stack_lookup($1));}/*stacklookup*/
