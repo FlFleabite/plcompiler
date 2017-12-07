@@ -80,6 +80,8 @@ subprog_decl
 proc_decl
 	: PROCEDURE proc_name SEMICOLON {flag=LOCAL;} inblock {flag=GLOBAL;
 	stack_delete();generate(RTN,0,0,0);}
+	| PROCEDURE proc_name LPAREN id_list RPAREN SEMICOLON {flag=LOCAL;} inblock {flag=GLOBAL;
+	stack_delete();generate(RTN,0,0,0);}
 	;
 
 proc_name
