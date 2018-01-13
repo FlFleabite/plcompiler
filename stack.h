@@ -7,7 +7,9 @@
 #include<string.h>
 void stack_insert(char *name, int type,int addr);
 int stack_lookup(char *name);
-int type_lookup(char *name);
+int type_lookup(char *name,int type);
+int stack_type_lookup(char *name,int type);
 void stack_delete();
+void alldelete();
 
 #endif

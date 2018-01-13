@@ -35,6 +35,7 @@ void stack_insert(char *name, int type,int addr)
     }else{st=new;first=new;}
 
     new->name=(char*)malloc(strlen(name)*sizeof(char));//必要な分だけnameを確保
+    new->next=NULL;
 
     if(type==2)//TYPE==PROC
     {
@@ -69,8 +70,8 @@ int stack_lookup(char *name)
     while(strcmp(st->name,name)!=0 ){
         st=st->next;
         if(st==NULL){
-            fprintf(stderr,"stack.c: No such Value \"%s\"!!\n",name);
-            return;
+            fprintf(stderr,"stack.c(stack_lookup): No such Value \"%s\"!!\n",name);
+            exit(-1);
         } 
     }
     
@@ -78,22 +79,55 @@ int stack_lookup(char *name)
     return st->addr;
 }
 
-int type_lookup(char *name){
+int type_lookup(char *name,int type){
     int i = 0;
     STACK *st; //インクリメント用
     st = first;
-    while (strcmp(st->name, name) != 0)
+    while ((strcmp(st->name, name) != 0)||(type != st->flag))
     {
         st = st->next;
         if (st == NULL)
         {
-            fprintf(stderr, "stack.c: No such Value \"%s\"!!\n", name);
-            return;
+            st = first;
+            while (strcmp(st->name, name) != 0){
+                st = st->next;
+                if(st==NULL){
+                    fprintf(stderr, "stack.c(type_lookup): No such Value \"%s\"!!\n", name);
+                    exit(-1);
+                }
+            }
+            return st->flag;
+            //fprintf(stderr, "stack.c: No such Value \"%s\"!!\n", name);
+            //return;
         }
     }
-
     //printf("%s\tis looked up: addr = %d, type = %d\n", name, st->addr, st->flag);
     return st->flag;
+}
+
+int stack_type_lookup(char *name, int type){
+    int i=0;
+    STACK *st;//インクリメント用
+    st=first;
+    while((strcmp(st->name,name)!=0)||type!=st->flag){
+        st=st->next;
+        if(st==NULL){
+            st = first;
+            while (strcmp(st->name, name) != 0){
+                st = st->next;
+                if(st==NULL){
+                    fprintf(stderr, "stack.c(stack_type_lookup): No such Value \"%s\"!!\n", name);
+                    exit(-1);
+                }
+            }
+            return st->addr;
+            //fprintf(stderr,"stack.c(stack_type_lookup): No such Value \"%s\"!!\n",name);
+            //exit(-1);
+        } 
+    }
+    
+    printf("%s\tis looked up: addr = %d, type = %d\n", name,st->addr,st->flag);
+    return st->addr;
 }
 
 void stack_delete()

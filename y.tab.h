@@ -130,7 +130,7 @@ extern int yydebug;
 
 union YYSTYPE
 {
-#line 20 "parser.y" /* yacc.c:1909  */
+#line 26 "parser.y" /* yacc.c:1909  */
 
     int num;
     char ident[MAXLENGTH+1];

@@ -1,14 +1,11 @@
-program test;
+program PL2A;
 var n;
 function fact(n);
 begin
     if n <= 0 then
         fact := 1
     else
-        if n = 1 then
-            fact := 1
-        else
-            fact := fact(n - 1) + fact(n - 2)    
+        fact := fact(n - 1) * n;
 end;
 begin
     read(n);

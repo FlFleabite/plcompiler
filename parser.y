@@ -9,12 +9,18 @@
 #include"code.h"
 extern int yylineno;
 extern char *yytext;
-enum FLAG {GLOBAL,LOCAL,PROC};
+enum FLAG {GLOBAL,LOCAL,PROC,FUNC};
 enum FLAG flag=GLOBAL; 
 FILE *fp;
 static int currentstack=0;
 static int startstack=0;
 static int opnumber=0;
+static int procvarnumber=0;
+static char procnamebuffer[256];
+static int ifneedreturn=0;
+void generate(int opcode,REG base,REG index,REG address);
+void backpatch(int a,REG b);
+void yyerror(char *s);
 %}
 
 %union {
@@ -64,7 +70,7 @@ var_decl
     ;
 
 subprog_decl_part
-	: {currentstack=0;}subprog_decl_list SEMICOLON
+	: subprog_decl_list SEMICOLON
     | /* empty */
     ;
 
@@ -74,22 +80,32 @@ subprog_decl_list
 	;
 
 subprog_decl
-	: proc_decl
+	: {currentstack=0;} proc_decl
 	;
 
 proc_decl
 	: PROCEDURE proc_name SEMICOLON {flag=LOCAL;} inblock {flag=GLOBAL;
 	stack_delete();generate(RTN,0,0,0);}
-	| PROCEDURE proc_name LPAREN id_list RPAREN SEMICOLON {flag=LOCAL;} inblock {flag=GLOBAL;
+	| PROCEDURE proc_name LPAREN {flag=LOCAL;procvarnumber=0;} prog_id_list RPAREN SEMICOLON inblock {flag=GLOBAL;
 	stack_delete();generate(RTN,0,0,0);}
+	| FUNCTION func_name SEMICOLON {flag=LOCAL;} inblock {
+		flag=GLOBAL;
+		stack_delete(); generate(RTN,0,0,0);}
+	| FUNCTION func_name LPAREN {flag=LOCAL;procvarnumber=0;} prog_id_list RPAREN SEMICOLON inblock /*{
+		flag=GLOBAL;
+		stack_delete();generate(RTN,0,0,0);}*/
 	;
 
 proc_name
 	: IDENT {stack_insert($1,PROC,opnumber);} /*add stack*/
 	;
 
+func_name
+	: IDENT {stack_insert($1,FUNC,opnumber);}
+	;
+
 inblock
-	: var_decl_part statement
+	: var_decl_part {generate(INT,0,0,procvarnumber);} statement
 	;
 
 statement_list
@@ -110,7 +126,14 @@ statement
 	;
 
 assignment_statement
-	: IDENT ASSIGN expression {generate(STO,type_lookup($1),0,stack_lookup($1));}
+	: IDENT ASSIGN expression {
+		if(type_lookup($1,flag)!=3){ /*if not return statement*/
+			generate(STO,type_lookup($1,flag),0,stack_lookup($1)); 
+		}else{
+			generate(STO,LOCAL,0,-5); /*return*/
+			generate(RTN,0,0,0);
+		}
+	}
 	;
 
 if_statement
@@ -128,20 +151,32 @@ while_statement
 
 for_statement
 	: FOR IDENT ASSIGN expression 
-	{generate(STO,type_lookup($2),0,stack_lookup($2));}/*インクリメント用変数の初期値の設定*/ 
+	{generate(STO,type_lookup($2,flag),0,stack_lookup($2));}/*インクリメント用変数の初期値の設定*/ 
 	TO label expression 
-	{generate(LOD,type_lookup($2),0,stack_lookup($2));generate(OPR,0,0,10); generate(JPC,0,0,0);/*backpatch*/} /*終了判定*/
+	{generate(LOD,type_lookup($2,flag),0,stack_lookup($2));generate(OPR,0,0,10); generate(JPC,0,0,0);/*backpatch*/} /*終了判定*/
 	label DO statement 
-	{/*インクリメント*/generate(LIT,0,0,1);generate(LOD,type_lookup($2),0,stack_lookup($2));generate(OPR,0,0,1);generate(STO,type_lookup($2),0,stack_lookup($2)); generate(JMP,0,0,$7); backpatch($10-1,opnumber);}/*変数のインクリメント*/
+	{/*インクリメント*/generate(LIT,0,0,1);generate(LOD,type_lookup($2,flag),0,stack_lookup($2));generate(OPR,0,0,1);generate(STO,type_lookup($2,flag),0,stack_lookup($2)); generate(JMP,0,0,$7); backpatch($10-1,opnumber);}/*変数のインクリメント*/
 	;
 
 proc_call_statement
 	: proc_call_name
-	| proc_call_name LPAREN arg_list RPAREN
+	| proc_call_name_with_var LPAREN {ifneedreturn=(type_lookup(procnamebuffer,flag)==3);} prog_arg_list RPAREN{
+		if(type_lookup(procnamebuffer,flag)==3){
+			generate(INT,0,0,1);
+		}
+		generate(CAL,0,0,stack_lookup(procnamebuffer));}
 	;
 
 proc_call_name
-	: IDENT {generate(CAL,0,0,stack_lookup($1));}/*stacklookup*/
+	: IDENT {
+		if(type_lookup($1,flag)==3){
+			generate(INT,0,0,1);
+		}
+		generate(CAL,0,0,stack_lookup($1));}/*stacklookup*/
+	;
+
+proc_call_name_with_var
+	: IDENT {strcpy(procnamebuffer,$1);}
 	;
 
 block_statement
@@ -149,7 +184,7 @@ block_statement
 	;
 
 read_statement
-	: READ LPAREN IDENT RPAREN {generate(GET,0,0,0);generate(STO,type_lookup($3),0,stack_lookup($3));}
+	: READ LPAREN IDENT RPAREN {generate(GET,0,0,0);generate(STO,type_lookup($3,flag),0,stack_lookup($3));}
 	;
 
 write_statement
@@ -190,13 +225,28 @@ factor
 	;
 
 var_name 
-	: IDENT {generate(LOD,type_lookup($1),0,stack_lookup($1));}
+	: IDENT {
+		if(type_lookup($1,flag)!=3){
+			generate(LOD,type_lookup($1,flag),0,stack_type_lookup($1,flag));
+		}else{
+			if(type_lookup($1,flag)==3){
+				generate(INT,0,0,1);
+			}
+			generate(CAL,0,0,stack_lookup($1));
+		}
+	}
+	| proc_call_name_with_var LPAREN {ifneedreturn=1;} prog_arg_list RPAREN{
+		if(type_lookup(procnamebuffer,flag)==3){
+			generate(INT,0,0,1);
+		}
+		generate(CAL,0,0,stack_lookup(procnamebuffer));}
 	;
 
 arg_list
-	: expression
-	| arg_list COMMA expression
+	: expression {procvarnumber++;}
+	| arg_list COMMA expression {procvarnumber++;}
 	;
+
 
 id_list
 	: IDENT {stack_insert($1,flag,currentstack);currentstack++; generate(LIT,0,0,0);}
@@ -204,10 +254,23 @@ id_list
 	;
 
 label
-	: {$$ = opnumber;};/*backpatch用,label位置の命令数を保持*/
+	: {$$ = opnumber;}/*backpatch用,label位置の命令数を保持*/
+	;
+
+/*for subprog*/
+prog_arg_list
+	: {generate(INT,0,0,4+ifneedreturn); procvarnumber=0;} arg_list {generate(INT,0,0,-(procvarnumber+4+ifneedreturn));}
+	;
+
+prog_id_list
+	: IDENT {stack_insert($1,flag,currentstack);currentstack++;procvarnumber++;}
+	| prog_id_list COMMA IDENT {stack_insert($3,flag,currentstack);currentstack++;procvarnumber++;}
+	;
+/*************/
+
 
 %% 
-yyerror(char *s)
+void yyerror(char *s)
 {
 
   fprintf(stderr, "L%d:%s %s\n",yylineno,yytext, s);
@@ -222,33 +285,13 @@ void generate(int opcode,REG base,REG index,REG address){
 	item.address=address;
 
 	//DEBAG
-	printf("code: %d %d %d %d\n",item.opcode,item.basereg,item.indexreg,item.address);
+	printf("L%d code: %d %d %d %d  (%s)\n",yylineno,item.opcode,item.basereg,item.indexreg,item.address,yytext);
 	//ENDDEBAG
 
 	fwrite(&item,sizeof(OPCODE),1,fp);
 
 	opnumber++;
-	/*
-	switch(opcode){
-		case 0:
-		case 1:
-		case 10:
-			currentstack++;
-			break;
-		case 2:
-		case 3:
-		case 4:
-		case 9:
-		case 11:
-			currentstack--;
-			break;
-		case 6:
-			startstack=currentstack+5;
-			currentstack+=4;
-			break;
-		case 7:
-			currentstack=startstack-5;
-	}*/
+
 }
 
 void backpatch(int a,REG b){
